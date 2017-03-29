@@ -4,7 +4,62 @@
 #include <fstream>
 #include <math/VRMath.h>
 
-XMAObject::XMAObject(std::string obj_file ,std::string  transformation_file){
+std::istream& XMAObject::safeGetline(std::istream& is, std::string& t)
+{
+	t.clear();
+
+	// The characters in the stream are read one-by-one using a std::streambuf.
+	// That is faster than reading them one-by-one using the std::istream.
+	// Code that uses streambuf this way must be guarded by a sentry object.
+	// The sentry object performs various tasks,
+	// such as thread synchronization and updating the stream state.
+
+	std::istream::sentry se(is, true);
+	std::streambuf* sb = is.rdbuf();
+
+	for (;;)
+	{
+		int c = sb->sbumpc();
+		switch (c)
+		{
+		case '\n':
+			return is;
+		case '\r':
+			if (sb->sgetc() == '\n')
+				sb->sbumpc();
+			return is;
+		case EOF:
+			// Also handle the case when the last line has no line ending
+			if (t.empty())
+			{
+				is.setstate(std::ios::eofbit);
+			}
+			return is;
+		default:
+			t += (char)c;
+		}
+	}
+}
+
+
+bool XMAObject::StartsWith(const std::string& text, const std::string& token)
+{
+	if (text.length() < token.length())
+		return false;
+	return (text.compare(0, token.length(), token) == 0);
+}
+
+
+std::istream& XMAObject::comma(std::istream& in)
+{
+	if ((in >> std::ws).peek() != std::char_traits<char>::to_int_type(','))
+	{
+		in.setstate(std::ios_base::failbit);
+	}
+	return in.ignore();
+}
+
+XMAObject::XMAObject(std::string obj_file, std::string  transformation_file, float scale){
 	
 	GLMmodel* pmodel = glmReadOBJ((char*) obj_file.c_str());
 
@@ -14,24 +69,63 @@ XMAObject::XMAObject(std::string obj_file ,std::string  transformation_file){
 	//glmUnitize(pmodel);
 	glmFacetNormals(pmodel);
 	glmVertexNormals(pmodel, 90.0);
+	glmScale(pmodel, scale);
 	displayList = glmList(pmodel, GLM_SMOOTH  );
 	glmDelete(pmodel);
 
-	FILE * file;
-	file = std::fopen(transformation_file.c_str(),"r");
 
-	double tmp[16] ; 
-	while(std::fscanf(file, "%lf , %lf , %lf , %lf , %lf , %lf , %lf , %lf , %lf , %lf , %lf , %lf , %lf , %lf , %lf , %lf\n",
-		&tmp[0], &tmp[1], &tmp[2], &tmp[3], &tmp[4], &tmp[5], &tmp[6], &tmp[7], &tmp[8], &tmp[9], &tmp[10], &tmp[11], &tmp[12], &tmp[13], &tmp[14], &tmp[15])==16 )
+	std::ifstream fin(transformation_file.c_str());
+	std::istringstream in;
+	std::string line;
+	safeGetline(fin, line);
+	while (!safeGetline(fin, line).eof())
 	{
-		float* trans = new float[16];
+		in.clear();
+		in.str(line);
+		std::vector<double> tmp;
+		if (StartsWith(line, "NaN"))
+		{
+			visible.push_back(false);
 
-		for(int x = 0; x < 16; x++)trans[x] = tmp[x];
+			float* trans = new float[16];
+			for (int x = 0; x < 16; x++)
+				trans[x] = 0;
+			trans[0] = 1;
+			trans[5] = 1;
+			trans[10] = 1;
+			trans[15] = 1;
+		}
+		else{
+			for (double value; in >> value; comma(in))
+			{
+				tmp.push_back(value);
+			}
 
-		transformation.push_back(trans);
+			if (tmp.size() == 16)
+			{
+				visible.push_back(true);
+				float* trans = new float[16];
+
+				for (int x = 0; x < 16; x++)trans[x] = tmp[x];
+				transformation.push_back(trans);
+			}
+			else
+			{
+				visible.push_back(false);
+
+				float* trans = new float[16];
+				for (int x = 0; x < 16; x++)
+					trans[x] = 0;
+				trans[0] = 1;
+				trans[5] = 1;
+				trans[10] = 1;
+				trans[15] = 1;
+			}
+		}
+		line.clear();
+		tmp.clear();
 	}
-
-	std::fclose(file);
+	fin.close();
 }
 
 std::string XMAObject::getFilename(std::string path)
@@ -52,11 +146,13 @@ XMAObject::~XMAObject(){
 }
 
 void XMAObject::render(int frame){
-	glPushMatrix();
-		glMultMatrixf (transformation[frame]);
+	if (visible[frame]){
+		glPushMatrix();
+		glMultMatrixf(transformation[frame]);
 		glCallList(displayList);
 
-	glPopMatrix();
+		glPopMatrix();
+	}
 }
 
 std::string XMAObject::getName()

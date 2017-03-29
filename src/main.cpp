@@ -90,10 +90,15 @@ bool StartsWith(const std::string& text, const std::string& token)
 class MyVRApp : public VRApp, VRMenuHandler
 {
 public:
-	MyVRApp(int argc, char** argv, const std::string& configFile) : VRApp(argc, argv, configFile), menuVisible(false), clicked(false), movement_x(0.0), movement_y(0.0), rotateObj(false), current_obj(-1), tool_dist(-0.1), hover_particle(-1), selected_particle(-1), particle_trail(-1), currentMenu(0)
+	MyVRApp(int argc, char** argv, const std::string& configFile) : VRApp(argc, argv, configFile), menuVisible(false), clicked(false), movement_x(0.0), movement_y(0.0), rotateObj(false), current_obj(-1), tool_dist(-0.1), hover_particle(-1), selected_particle(-1), particle_trail(-1), currentMenu(0), objscale(1.0)
 	{
 
 		initXROMM(argv[2]);
+
+		if (argc >= 4)
+		{
+			objscale = std::atof(argv[3]);
+		}
 
 		light_pos[0] = 0.0;
 		light_pos[1] = 4.0;
@@ -125,7 +130,7 @@ public:
 		filename = mySetup + slash;
 	}
 
-	void loadData(std::string directory) {
+	void loadData(std::string directory, float scale) {
 		initialised = true;
 		FILE *file;
 		std::string filename = directory;
@@ -140,7 +145,7 @@ public:
 			char * trans_file = std::strtok(NULL, "\n");
 			std::string obj_filename = directory;
 			std::string trans_filename = directory;
-			XMAObject * obj = new XMAObject(obj_filename.append(obj_file), trans_filename.append(trans_file));
+			XMAObject * obj = new XMAObject(obj_filename.append(obj_file), trans_filename.append(trans_file),objscale);
 			objects.push_back(obj);
 		}
 
@@ -475,7 +480,7 @@ public:
 	virtual void onVRRenderGraphicsContext(const VRGraphicsState& state)
 	{
 		if (!initialised) {
-			loadData(filename);
+			loadData(filename, objscale);
 			glLightfv(GL_LIGHT0, GL_POSITION, light_pos);
 			glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, toggle_display_transparent->isToggled());
 		}
@@ -563,7 +568,6 @@ public:
 	}
 
 	virtual void onVRRenderGraphics(const VRGraphicsState &state) {
-		if (!initialised) loadData(filename);
 		glClearColor(1.0, 1.0, 1.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glEnable(GL_NORMALIZE);
@@ -1177,6 +1181,7 @@ protected:
 	int hover_particle;
 	int selected_particle;
 	GLfloat light_pos[4];
+	double objscale;
 
 	int max_Frame;
 	double frame;
