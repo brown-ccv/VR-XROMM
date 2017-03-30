@@ -14,7 +14,7 @@
 #include <GL/glu.h>
 #endif
 
-
+#include <math.h>
 // MinVR header
 #include <api/MinVR.h>
 #include "main/VREventInternal.h"
@@ -90,7 +90,7 @@ bool StartsWith(const std::string& text, const std::string& token)
 class MyVRApp : public VRApp, VRMenuHandler
 {
 public:
-	MyVRApp(int argc, char** argv, const std::string& configFile) : VRApp(argc, argv, configFile), menuVisible(false), clicked(false), movement_x(0.0), movement_y(0.0), rotateObj(false), current_obj(-1), tool_dist(-0.1), hover_particle(-1), selected_particle(-1), particle_trail(-1), currentMenu(0), objscale(1.0)
+	MyVRApp(int argc, char** argv, const std::string& configFile) : VRApp(argc, argv, configFile), menuVisible(false), clicked(false), movement_x(0.0), movement_y(0.0), rotateObj(false), current_obj(-1), tool_dist(-0.8), hover_particle(-1), selected_particle(-1), particle_trail(-1), currentMenu(0), objscale(1.0)
 	{
 
 		initXROMM(argv[2]);
@@ -111,8 +111,6 @@ public:
 		points[3] = -1;
 
 		rotateObj = 0;
-
-		createMenu();
 	}
 
 	virtual ~MyVRApp()
@@ -167,7 +165,7 @@ public:
 			max_Frame = (max_Frame > (*it)->getTransformationSize()) ? (*it)->getTransformationSize() : max_Frame;
 		}
 
-
+		createMenu();
 	}
 
 	void updateParticles()
@@ -214,14 +212,18 @@ public:
 	}
 
 	virtual void onVREvent(const VREvent &event) {
-
-
+		//event.print();
+		if(!initialised)
+			return;
 		if (event.getName() == "HTC_HMD_1")
 		{
 			headpose = event.getDataAsFloatArray("Pose");
 		}
-
-		if (event.getName() == "HTC_Controller_1_Axis1Button_Pressed"){
+		else if (event.getName() == "Head_Move"){
+			headpose = event.getDataAsFloatArray("Transform");
+		}
+		else if (event.getName() == "HTC_Controller_1_Axis1Button_Pressed" ||
+			event.getName() == "Wand_Right_Btn_Down"){
 			if (!clickMenus(true)){
 				clicked = true;
 
@@ -330,8 +332,8 @@ public:
 				}
 			}
 		}
-		
-		if (event.getName() == "HTC_Controller_1_Axis1Button_Released"){
+		else if (event.getName() == "HTC_Controller_1_Axis1Button_Released" ||
+			event.getName() == "Wand_Right_Btn_Up"){
 			clickMenus(false);
 			clicked = false;
 			rotateObj = false;
@@ -406,7 +408,7 @@ public:
 				selected_particle = -1;
 			}
 		}
-		if (event.getName() == "HTC_Controller_2_Axis0Button_Pressed"){
+		else if (event.getName() == "HTC_Controller_2_Axis0Button_Pressed"){
 			if (menuVisible){
 				double val = event.getInternal()->getDataIndex()->getValue("/HTC_Controller_2/State/Axis0/XPos");
 				if (val > 0){
@@ -428,7 +430,7 @@ public:
 					else if (points[2] == -1 || points[3] == -1)
 					{
 						toggle_angle_light1->setToggled(false);
-						toggle_angle_light2->setToggled(TRUE);
+						toggle_angle_light2->setToggled(true);
 					}
 					else
 					{
@@ -438,14 +440,73 @@ public:
 				}
 			}
 		}
-
-		if (event.getName() == "HTC_Controller_2_Axis1Button_Pressed"){
+		else if (event.getName() == "B11_Down"){
+			if (menuVisible){			
+				currentMenu--;
+				
+				currentMenu = currentMenu % menus.size();
+				displayMenu(currentMenu);
+				if (currentMenu == 2)
+				{
+					if (points[0] == -1 || points[1] == -1)
+					{
+						toggle_angle_light1->setToggled(true);
+						toggle_angle_light2->setToggled(false);
+					}
+					else if (points[2] == -1 || points[3] == -1)
+					{
+						toggle_angle_light1->setToggled(false);
+						toggle_angle_light2->setToggled(true);
+					}
+					else
+					{
+						toggle_angle_light1->setToggled(false);
+						toggle_angle_light2->setToggled(false);
+					}
+				}
+			}
+		}
+		else if (event.getName() == "B12_Down"){
+			if (menuVisible){			
+				currentMenu++;
+				
+				currentMenu = currentMenu % menus.size();
+				displayMenu(currentMenu);
+				if (currentMenu == 2)
+				{
+					if (points[0] == -1 || points[1] == -1)
+					{
+						toggle_angle_light1->setToggled(true);
+						toggle_angle_light2->setToggled(false);
+					}
+					else if (points[2] == -1 || points[3] == -1)
+					{
+						toggle_angle_light1->setToggled(false);
+						toggle_angle_light2->setToggled(true);
+					}
+					else
+					{
+						toggle_angle_light1->setToggled(false);
+						toggle_angle_light2->setToggled(false);
+					}
+				}
+			}
+		}
+		else if (event.getName() == "HTC_Controller_2_Axis1Button_Pressed" ||
+			event.getName() == "B13_Down")
+{
 			displayMenu(currentMenu);
 		}
-		if (event.getName() == "HTC_Controller_2_Axis1Button_Released"){
+		else if (event.getName() == "HTC_Controller_2_Axis1Button_Released" ||
+			event.getName() == "B13_Up"){
 			displayMenu(-1);
 		}
-		if (event.getName() == "HTC_Controller_2")
+		else if (event.getName() == "Wand1_Move"){
+			menupose = event.getDataAsFloatArray("Transform");
+			menupose = menupose * VRMatrix4::rotationY(deg2rad * -180)  * VRMatrix4::translation(VRVector3(0, 0.6,0));		
+			updateMenus();
+		}
+		else if (event.getName() == "HTC_Controller_2")
 		{
 			if (event.getInternal()->getDataIndex()->exists("/HTC_Controller_2/Pose")){
 				menupose = event.getDataAsFloatArray("Pose");
@@ -453,7 +514,17 @@ public:
 				updateMenus();
 			}
 		}
-		if (event.getName() == "HTC_Controller_1")
+		else if (event.getName() == "Wand0_Move"){
+			controllerpose = event.getDataAsFloatArray("Transform");
+			updateMenus();
+		}
+		else if(event.getName() == "Wand_Joystick_Y_Change") {
+			movement_y = event.getDataAsFloat("AnalogValue");
+		}
+		else if(event.getName() == "Wand_Joystick_X_Change") {
+			movement_x = event.getDataAsFloat("AnalogValue");
+		}
+		else if (event.getName() == "HTC_Controller_1")
 		{
 			if (event.getInternal()->getDataIndex()->exists("/HTC_Controller_1/Pose")){
 				controllerpose = event.getDataAsFloatArray("Pose");
@@ -655,7 +726,7 @@ public:
 			glMultMatrixf(controllerpose.getArray());
 			glBegin(GL_LINES);                // Begin drawing the color cube with 6 quads
 			// Back face (z = -1.0f)
-			glColor3f(0.5f, 0.5f, 0.0f);     // Yellow
+			glColor3f(0.1f, 0.1f, 0.0f);     // Yellow
 			glVertex3f(0.0f, 0.0f, -5.0f);
 			glVertex3f(0.0f, 0.0f, 0.0f);
 			glEnd();  // End of drawing color-cube
@@ -1059,8 +1130,7 @@ public:
 
 	void createMenu()
 	{
-		VRMenu *menu1 = new VRMenu(0.5, 0.5, 8, 8, filename);
-
+		VRMenu *menu1 = new VRMenu(1.0, 1.0, 8, 8, filename);
 		toggle_play = new VRToggle("button_play", "Play");
 		toggle_play->setToggled(true);
 		menu1->addElement(toggle_play, 1, 1, 8, 1);
@@ -1124,7 +1194,7 @@ public:
 
 		menus.push_back(menu1);
 
-		VRMenu *menu2 = new VRMenu(0.5, 0.5, 8, 8, "Distance");
+		VRMenu *menu2 = new VRMenu(1.0,1.0, 8, 8, "Distance");
 		std::vector <double> data;
 		for (int i = 0; i < max_Frame; i++)
 			data.push_back(0);
@@ -1135,7 +1205,7 @@ public:
 
 		menus.push_back(menu2);
 
-		VRMenu *menu3 = new VRMenu(0.5, 0.5, 8, 8, "Angle");
+		VRMenu *menu3 = new VRMenu(1.0, 1.0, 8, 8, "Angle");
 		toggle_angle_light1 = new VRToggle("toggle_angle_light1", "Set Line 1");
 		menu3->addElement(toggle_angle_light1, 1, 1, 8, 1);
 		toggle_angle_light2 = new VRToggle("toggle_angle_light2", "Set Line 2");
