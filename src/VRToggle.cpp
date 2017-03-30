@@ -20,7 +20,7 @@ void VRToggle::draw()
 {
 	glBegin(GL_QUADS);
 	// Draw A Quad
-	if (m_hover && !m_isToggled){
+	if (m_hover){
 		glColor3f(0.9f, 0.5f, 0.5f);
 	}
 	else if (m_isToggled)
