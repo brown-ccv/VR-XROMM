@@ -48,7 +48,9 @@ struct particle
 	VRPoint3 position;
 	int object;
 	std::vector<VRPoint3> positions;
+	std::vector<bool> visible;
 	int color;
+	
 };
 
 int current_color = 0;
@@ -175,13 +177,24 @@ public:
 		for (int j = 0; j < particles.size(); j++)
 		{
 			particles[j].positions.clear();
+			particles[j].visible.clear();
 			for (int i = 0; i < max_Frame; i++)
 			{
+				particles[j].visible.push_back(true);
 				VRPoint3 p_frame = particles[j].position;
-				if (particles[j].object != -1)
+				if (particles[j].object != -1){
+					if (!objects[particles[j].object]->isVisible(i))
+						particles[j].visible[i] = false;
 					p_frame = objects[particles[j].object]->getTransformation(i) * p_frame;
+				}
+				else
+				{
+					
+				}
 				if (toggle_fix_current_Object->isToggled())
 				{
+					if (!objects[fixed_obj]->isVisible(i))
+						particles[j].visible[i] = false;
 					p_frame = object_fixpose * objects[fixed_obj]->getTransformation(i).inverse() * p_frame;
 				}
 				particles[j].positions.push_back(p_frame);
@@ -193,7 +206,13 @@ public:
 	{
 		std::vector <double> data;		
 		for (int i = 0; i < max_Frame; i++)
+		if (particles[points[0]].visible[i] && particles[points[1]].visible[i]){
 			data.push_back((particles[points[0]].positions[i] - particles[points[1]].positions[i]).length());
+		}
+		else
+		{
+			data.push_back(GRAPHSKIPDVALUE);
+		}
 		
 		graph_distance->setData(data);
 	}
@@ -205,11 +224,17 @@ public:
 
 		std::vector <double> data;
 		for (int i = 0; i < max_Frame; i++)
+		if (particles[points[0]].visible[i] && particles[points[1]].visible[i] &&
+			particles[points[2]].visible[i] && particles[points[3]].visible[i]){
 			data.push_back(
 			(particles[points[0]].positions[i] - particles[points[1]].positions[i]).dot(
 			(particles[points[2]].positions[i] - particles[points[3]].positions[i]))
-				);
-
+			);
+		}
+		else
+		{
+			data.push_back(GRAPHSKIPDVALUE);
+		}
 		graph_angle->setData(data);
 	}
 
@@ -266,7 +291,6 @@ public:
 				}
 				else if (toggle_add_Particle->isToggled())
 				{
-					
 					particle p;
 					p.object = current_obj;
 
@@ -286,11 +310,17 @@ public:
 
 					for (int i = 0; i < max_Frame; i++)
 					{
+						p.visible.push_back(true);
 						VRPoint3 p_frame = p.position;
-						if (current_obj != -1)
+						if (current_obj != -1){
+							if (!objects[current_obj]->isVisible(i))
+								p.visible[i] = false;
 							p_frame = objects[current_obj]->getTransformation(i) * p_frame;
+						}
 						if (toggle_fix_current_Object->isToggled())
 						{
+							if (!objects[fixed_obj]->isVisible(i))
+								p.visible[i] = false;
 							p_frame = object_fixpose * objects[fixed_obj]->getTransformation(i).inverse() * p_frame;
 						}
 						p.positions.push_back(p_frame);
@@ -372,38 +402,40 @@ public:
 			}
 			else if (selected_particle != -1)
 			{
-				VRPoint3 p_tmp = roompose.inverse() * controllerpose * VRPoint3(0, 0, tool_dist);
+				if (particles[selected_particle].visible[frame]){
+					VRPoint3 p_tmp = roompose.inverse() * controllerpose * VRPoint3(0, 0, tool_dist);
 
-				p_tmp.x = p_tmp.x / scale;
-				p_tmp.y = p_tmp.y / scale;
-				p_tmp.z = p_tmp.z / scale;
-
-				if (toggle_fix_current_Object->isToggled())
-				{
-					p_tmp = objects[fixed_obj]->getTransformation(frame) * object_fixpose.inverse() * p_tmp;
-				}
-
-				if (particles[selected_particle].object != -1)
-					p_tmp = objects[particles[selected_particle].object]->getTransformation(frame).inverse() * p_tmp;
-
-				particles[selected_particle].position = p_tmp;
-
-				particles[selected_particle].positions.clear();
-				for (int i = 0; i < max_Frame; i++)
-				{
-					p_tmp = particles[selected_particle].position;
-					if (particles[selected_particle].object != -1)
-						p_tmp = objects[particles[selected_particle].object]->getTransformation(i) * p_tmp;
-					VRPoint3 p_frame = p_tmp;
+					p_tmp.x = p_tmp.x / scale;
+					p_tmp.y = p_tmp.y / scale;
+					p_tmp.z = p_tmp.z / scale;
 
 					if (toggle_fix_current_Object->isToggled())
 					{
-						p_frame = object_fixpose * objects[fixed_obj]->getTransformation(i).inverse() * p_frame;
+						p_tmp = objects[fixed_obj]->getTransformation(frame) * object_fixpose.inverse() * p_tmp;
 					}
-					particles[selected_particle].positions.push_back(p_frame);
-				}
 
-				selected_particle = -1;
+					if (particles[selected_particle].object != -1)
+						p_tmp = objects[particles[selected_particle].object]->getTransformation(frame).inverse() * p_tmp;
+
+					particles[selected_particle].position = p_tmp;
+
+					particles[selected_particle].positions.clear();
+					for (int i = 0; i < max_Frame; i++)
+					{
+						p_tmp = particles[selected_particle].position;
+						if (particles[selected_particle].object != -1)
+							p_tmp = objects[particles[selected_particle].object]->getTransformation(i) * p_tmp;
+						VRPoint3 p_frame = p_tmp;
+
+						if (toggle_fix_current_Object->isToggled())
+						{
+							p_frame = object_fixpose * objects[fixed_obj]->getTransformation(i).inverse() * p_frame;
+						}
+						particles[selected_particle].positions.push_back(p_frame);
+					}
+
+					selected_particle = -1;
+				}
 			}
 		}
 		if (event.getName() == "HTC_Controller_2_Axis0Button_Pressed"){
@@ -600,7 +632,7 @@ public:
 			glMultMatrixf(objects[fixed_obj]->getTransformation(frame).inverse().getArray());
 		}
 		for (int i = 0; i < objects.size(); i++)
-		{
+		{	
 			if (i == current_obj) {
 				glColor3f(1.0, 1.0, 0.0);
 			}
@@ -608,7 +640,16 @@ public:
 			{
 				glColor3f(1.0, 1.0, 1.0);
 			}
-			objects[i]->render((int)frame);
+			if (toggle_fix_current_Object->isToggled())
+			{
+				if (objects[fixed_obj]->isVisible(frame))
+				{
+					objects[i]->render((int)frame);
+				}
+			}
+			else{
+				objects[i]->render((int)frame);
+			}
 		}
 		glPopMatrix();
 
@@ -619,8 +660,7 @@ public:
 			glDepthFunc(GL_LESS); // The Type Of Depth Testing To Do
 		}
 
-		//particles
-		//Do Rendereing
+		//Do other rendering
 		glPushMatrix();
 		glMultMatrixf(roompose.getArray());
 		glScaled(scale, scale, scale);
@@ -629,27 +669,32 @@ public:
 			glMultMatrixf(object_fixpose.getArray());
 			glMultMatrixf(objects[fixed_obj]->getTransformation(frame).inverse().getArray());
 		}
+
+		//draw Particles
 		for (int i = 0; i < particles.size(); i++)
 		{
-			if ((i == hover_particle && selected_particle == -1) || 
-				selected_particle == i) {
-				glColor3f(1.0, 0.0, 0.0);
-			}
-			else
-			{
-				glColor3f(color_array[particles[i].color][0], color_array[particles[i].color][1], color_array[particles[i].color][2]);
-			}
+			if (particles[i].visible[frame]){
+				if ((i == hover_particle && selected_particle == -1) ||
+					selected_particle == i) {
+					glColor3f(1.0, 0.0, 0.0);
+				}
+				else
+				{
+					glColor3f(color_array[particles[i].color][0], color_array[particles[i].color][1], color_array[particles[i].color][2]);
+				}
 
-			glPushMatrix();
-			if (particles[i].object != -1)
-				glMultMatrixf(objects[particles[i].object]->getTransformation(frame).getArray());
-			glTranslatef(particles[i].position.x, particles[i].position.y, particles[i].position.z);
-			glScaled(1.0 / scale, 1.0 / scale, 1.0 / scale);
-			glCallList(sphere);
-			glPopMatrix();
+				glPushMatrix();
+				if (particles[i].object != -1)
+					glMultMatrixf(objects[particles[i].object]->getTransformation(frame).getArray());
+				glTranslatef(particles[i].position.x, particles[i].position.y, particles[i].position.z);
+				glScaled(1.0 / scale, 1.0 / scale, 1.0 / scale);
+				glCallList(sphere);
+				glPopMatrix();
+			}
 		}
 		glPopMatrix();
 
+		//draw tool
 		if (!toggle_project_Particle->isToggled() || !clicked){
 			glPushMatrix();
 			glMultMatrixf(controllerpose.getArray());
@@ -668,39 +713,44 @@ public:
 			glPopMatrix();
 		} 
 
+		//draw projected particle
 		if (toggle_project_Particle->isToggled() && clicked)
 		{
 			VRVector3 controller_n = controllerpose * VRVector3(0, 1, 0);
 
 			for (int i = 0; i < particles.size(); i++)
 			{
-				if ((i == hover_particle && selected_particle == -1) ||
-					selected_particle == i) {
-					glColor3f(1.0, 0.0, 0.0);
+				if (particles[i].visible[frame]){
+					if ((i == hover_particle && selected_particle == -1) ||
+						selected_particle == i) {
+						glColor3f(1.0, 0.0, 0.0);
+					}
+					else
+					{
+						glColor3f(color_array[particles[i].color][0], color_array[particles[i].color][1], color_array[particles[i].color][2]);
+					}
+
+					VRPoint3 p_particle = particles[i].positions[frame];
+					p_particle.x = p_particle.x * scale;
+					p_particle.y = p_particle.y * scale;
+					p_particle.z = p_particle.z * scale;
+					p_particle = roompose * p_particle;
+					VRPoint3 p_particle2 = controllerpose.inverse()* p_particle;
+					double d = -p_particle2.y;
+					glPushMatrix();
+					glTranslatef(p_particle.x + d * controller_n.x, p_particle.y + d * controller_n.y, p_particle.z + d * controller_n.z);
+					glScalef(1.0 / scale * 0.01, 1.0 / scale * 0.01, 1.0 / scale * 0.01);
+					glCallList(sphere);
+					glPopMatrix();
 				}
-				else
-				{
-					glColor3f(color_array[particles[i].color][0], color_array[particles[i].color][1], color_array[particles[i].color][2]);
-				}
-				 
-				VRPoint3 p_particle = particles[i].positions[frame];
-				p_particle.x = p_particle.x * scale;
-				p_particle.y = p_particle.y * scale;
-				p_particle.z = p_particle.z * scale;
-				p_particle = roompose * p_particle;
-				VRPoint3 p_particle2 = controllerpose.inverse()* p_particle;
-				double d = -p_particle2.y;
-				glPushMatrix();
-				glTranslatef(p_particle.x + d * controller_n.x, p_particle.y + d * controller_n.y, p_particle.z + d * controller_n.z);
-				glScalef(1.0 / scale * 0.01, 1.0 / scale * 0.01, 1.0 / scale * 0.01);
-				glCallList(sphere);
-				glPopMatrix();
 			}
 		}
 
 		glDisable(GL_LIGHTING);
 
-		if (points[0] != -1)
+		//draw lines
+		if (points[0] != -1 && particles[points[0]].visible[frame] &&
+			(points[1] == -1 || (points[1] != -1 && particles[points[1]].visible[frame])))
 			{
 				VRPoint3 pt1 = particles[points[0]].positions[frame];
 				pt1.x = pt1.x *scale;
@@ -732,7 +782,8 @@ public:
 				glPopMatrix();
 		}
 
-		if (points[2] != -1)
+		if (points[2] != -1 && particles[points[2]].visible[frame] &&
+			(points[3] == -1 || (points[3] != -1 && particles[points[3]].visible[frame])))
 		{
 			VRPoint3 pt1 = particles[points[2]].positions[frame];
 			pt1.x = pt1.x *scale;
@@ -796,19 +847,27 @@ public:
 
 				for (int j = start; j < end; j++)
 				{
-					VRPoint3 p_particle = particles[i].positions[j];
-					p_particle.x = p_particle.x * scale;
-					p_particle.y = p_particle.y * scale;
-					p_particle.z = p_particle.z * scale;
-					p_particle = roompose * p_particle;
-					VRPoint3 p_particle2 = controllerpose.inverse()* p_particle;
-					double d = -p_particle2.y;
+					if (particles[i].visible[j]){
+						VRPoint3 p_particle = particles[i].positions[j];
+						p_particle.x = p_particle.x * scale;
+						p_particle.y = p_particle.y * scale;
+						p_particle.z = p_particle.z * scale;
+						p_particle = roompose * p_particle;
+						VRPoint3 p_particle2 = controllerpose.inverse()* p_particle;
+						double d = -p_particle2.y;
 
-					if (p_particle2.x < min_x) min_x = p_particle2.x;
-					if (p_particle2.x > max_x) max_x = p_particle2.x;
-					if (p_particle2.z < min_z) min_z = p_particle2.z;
-					if (p_particle2.z > max_z) max_z = p_particle2.z;
-					glVertex3f(p_particle.x + d * controller_n.x, p_particle.y + d * controller_n.y, p_particle.z + d * controller_n.z);
+						if (p_particle2.x < min_x) min_x = p_particle2.x;
+						if (p_particle2.x > max_x) max_x = p_particle2.x;
+						if (p_particle2.z < min_z) min_z = p_particle2.z;
+						if (p_particle2.z > max_z) max_z = p_particle2.z;
+					
+						glVertex3f(p_particle.x + d * controller_n.x, p_particle.y + d * controller_n.y, p_particle.z + d * controller_n.z);
+					}
+					else
+					{
+						glEnd();
+						glBegin(GL_LINE_STRIP);
+					}
 				}
 				glEnd();
 			}
@@ -853,7 +912,14 @@ public:
 
 			for (int j = start; j < end; j++)
 			{
-				glVertex3f(particles[i].positions[j].x, particles[i].positions[j].y, particles[i].positions[j].z);
+				if (particles[i].visible[j]){
+					glVertex3f(particles[i].positions[j].x, particles[i].positions[j].y, particles[i].positions[j].z);
+				}
+				else
+				{
+					glEnd();
+					glBegin(GL_LINE_STRIP);
+				}
 			}
 			glEnd();
 		}

@@ -5,6 +5,7 @@
 #include "VRFontHandler.h"
 
 #define GRAPHUNDEFINEDVALUE -999999999
+#define GRAPHSKIPDVALUE -9999999999
 
 class VRGraph : public VRMenuElement {
 public:

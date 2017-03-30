@@ -94,6 +94,7 @@ XMAObject::XMAObject(std::string obj_file, std::string  transformation_file, flo
 			trans[5] = 1;
 			trans[10] = 1;
 			trans[15] = 1;
+			transformation.push_back(trans);
 		}
 		else{
 			for (double value; in >> value; comma(in))
@@ -120,11 +121,13 @@ XMAObject::XMAObject(std::string obj_file, std::string  transformation_file, flo
 				trans[5] = 1;
 				trans[10] = 1;
 				trans[15] = 1;
+				transformation.push_back(trans);
 			}
 		}
 		line.clear();
 		tmp.clear();
 	}
+	std::cerr << transformation.size() << std::endl;
 	fin.close();
 }
 
@@ -168,4 +171,9 @@ MinVR::VRMatrix4 XMAObject::getTransformation(int frame)
 int XMAObject::getTransformationSize()
 {
 	return transformation.size();
+}
+
+bool XMAObject::isVisible(int frame)
+{
+	return visible[frame];
 }

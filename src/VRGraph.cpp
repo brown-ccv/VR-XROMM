@@ -37,8 +37,14 @@ void VRGraph::draw()
 	glColor3f(0.0f, 0.0, 0.0f);
 	glBegin(GL_LINE_STRIP);
 	for (int i = 0; i < m_data.size(); i++){
-		if (m_data[i] != GRAPHUNDEFINEDVALUE)
+		if (m_data[i] != GRAPHUNDEFINEDVALUE && m_data[i] != GRAPHSKIPDVALUE){
 			glVertex3f(m_x + m_spacing[0] * i, m_y + (m_data[i] - m_range[0]) * m_spacing[1], Z_OFFSET);
+		}
+		else if (m_data[i] == GRAPHSKIPDVALUE)
+		{
+			glEnd();
+			glBegin(GL_LINE_STRIP);
+		}
 	}
 	glEnd();
 
@@ -124,7 +130,7 @@ void VRGraph::computeBounds()
 
 	for (std::vector<double>::const_iterator it = m_data.begin(); it != m_data.end(); ++it)
 	{
-		if (*it != GRAPHUNDEFINEDVALUE){
+		if (*it != GRAPHUNDEFINEDVALUE && *it != GRAPHSKIPDVALUE){
 			if (min > *it) min = *it;
 			if (max < *it) max = *it;
 		}

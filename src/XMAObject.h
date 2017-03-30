@@ -15,7 +15,7 @@ class XMAObject                   // begin declaration of the class
 	std::string getName();
 	MinVR::VRMatrix4  getTransformation(int frame);
 	int getTransformationSize();
-
+	bool isVisible(int frame);
  private:                   // begin private section
     unsigned int displayList;              // member variable
 	std::vector<float*> transformation;
