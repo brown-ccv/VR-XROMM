@@ -92,14 +92,14 @@ bool StartsWith(const std::string& text, const std::string& token)
 class MyVRApp : public VRApp, VRMenuHandler
 {
 public:
-	MyVRApp(int argc, char** argv, const std::string& configFile) : VRApp(argc, argv, configFile), menuVisible(false), clicked(false), movement_x(0.0), movement_y(0.0), rotateObj(false), current_obj(-1), tool_dist(-0.8), hover_particle(-1), selected_particle(-1), particle_trail(-1), currentMenu(0), objscale(1.0)
+	MyVRApp(int argc, char** argv, const std::string& configFile) : VRApp(argc, argv), menuVisible(false), clicked(false), movement_x(0.0), movement_y(0.0), rotateObj(false), current_obj(-1), tool_dist(-0.8), hover_particle(-1), selected_particle(-1), particle_trail(-1), currentMenu(0), objscale(1.0)
 	{
+		std::cerr << "start" << std::endl;
+		initXROMM(argv[3]);
 
-		initXROMM(argv[2]);
-
-		if (argc >= 4)
+		if (argc >= 5)
 		{
-			objscale = std::atof(argv[3]);
+			objscale = std::atof(argv[4]);
 		}
 
 		light_pos[0] = 0.0;
@@ -247,7 +247,7 @@ public:
 		else if (event.getName() == "Head_Move"){
 			headpose = event.getDataAsFloatArray("Transform");
 		}
-		else if (event.getName() == "HTC_Controller_1_Axis1Button_Pressed" ||
+		else if (event.getName() == "HTC_Controller_Right_Axis1Button_Pressed" ||
 			event.getName() == "Wand_Right_Btn_Down"){
 			if (!clickMenus(true)){
 				clicked = true;
@@ -362,7 +362,7 @@ public:
 				}
 			}
 		}
-		else if (event.getName() == "HTC_Controller_1_Axis1Button_Released" ||
+		else if (event.getName() == "HTC_Controller_Right_Axis1Button_Released" ||
 			event.getName() == "Wand_Right_Btn_Up"){
 			clickMenus(false);
 			clicked = false;
@@ -440,9 +440,9 @@ public:
 				}
 			}
 		}
-		else if (event.getName() == "HTC_Controller_2_Axis0Button_Pressed"){
+		else if (event.getName() == "HTC_Controller_Left_Axis0Button_Pressed"){
 			if (menuVisible){
-				double val = event.getInternal()->getDataIndex()->getValue("/HTC_Controller_2/State/Axis0/XPos");
+				double val = event.getInternal()->getDataIndex()->getValue("/HTC_Controller_Left/State/Axis0/XPos");
 				if (val > 0){
 					currentMenu++;
 				}
@@ -524,12 +524,12 @@ public:
 				}
 			}
 		}
-		else if (event.getName() == "HTC_Controller_2_Axis1Button_Pressed" ||
+		else if (event.getName() == "HTC_Controller_Left_Axis1Button_Pressed" ||
 			event.getName() == "B13_Down")
 {
 			displayMenu(currentMenu);
 		}
-		else if (event.getName() == "HTC_Controller_2_Axis1Button_Released" ||
+		else if (event.getName() == "HTC_Controller_Left_Axis1Button_Released" ||
 			event.getName() == "B13_Up"){
 			displayMenu(-1);
 		}
@@ -538,11 +538,11 @@ public:
 			menupose = menupose * VRMatrix4::rotationY(deg2rad * -180)  * VRMatrix4::translation(VRVector3(0, 0.6,0));		
 			updateMenus();
 		}
-		else if (event.getName() == "HTC_Controller_2")
+		else if (event.getName() == "HTC_Controller_Left")
 		{
-			if (event.getInternal()->getDataIndex()->exists("/HTC_Controller_2/Pose")){
+			if (event.getInternal()->getDataIndex()->exists("/HTC_Controller_Left/Pose")){
 				menupose = event.getDataAsFloatArray("Pose");
-				menupose = menupose * VRMatrix4::rotationX(deg2rad * -90) * VRMatrix4::translation(VRVector3(0, -0.2, 0));
+				menupose = menupose *VRMatrix4::translation(VRVector3(0, 0.0, -0.3));// VRMatrix4::rotationX(deg2rad * -90) * VRMatrix4::translation(VRVector3(0, -0.2, 0));
 				updateMenus();
 			}
 		}
@@ -556,16 +556,16 @@ public:
 		else if(event.getName() == "Wand_Joystick_X_Change") {
 			movement_x = event.getDataAsFloat("AnalogValue");
 		}
-		else if (event.getName() == "HTC_Controller_1")
+		else if (event.getName() == "HTC_Controller_Right")
 		{
-			if (event.getInternal()->getDataIndex()->exists("/HTC_Controller_1/Pose")){
+			if (event.getInternal()->getDataIndex()->exists("/HTC_Controller_Right/Pose")){
 				controllerpose = event.getDataAsFloatArray("Pose");
 				updateMenus();
 			}
-			if (event.getInternal()->getDataIndex()->exists("/HTC_Controller_1/State/Axis0Button_Pressed") &&
-				(int)event.getInternal()->getDataIndex()->getValue("/HTC_Controller_1/State/Axis0Button_Pressed")){
-				movement_x = event.getInternal()->getDataIndex()->getValue("/HTC_Controller_1/State/Axis0/XPos");
-				movement_y = event.getInternal()->getDataIndex()->getValue("/HTC_Controller_1/State/Axis0/YPos");
+			if (event.getInternal()->getDataIndex()->exists("/HTC_Controller_Right/State/Axis0Button_Pressed") &&
+				(int)event.getInternal()->getDataIndex()->getValue("/HTC_Controller_Right/State/Axis0Button_Pressed")){
+				movement_x = event.getInternal()->getDataIndex()->getValue("/HTC_Controller_Right/State/Axis0/XPos");
+				movement_y = event.getInternal()->getDataIndex()->getValue("/HTC_Controller_Right/State/Axis0/YPos");
 			}
 			else
 			{
@@ -1389,7 +1389,7 @@ protected:
 
 int main(int argc, char **argv)
 {
-	MyVRApp app(argc, argv, argv[1]);
+	MyVRApp app(argc, argv, argv[2]);
 	// This starts the rendering/input processing loop
 	app.run();
 
