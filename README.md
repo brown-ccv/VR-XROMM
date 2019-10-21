@@ -1,2 +1,3 @@
-# XROMM-VR
-An viewer for holographic microscope data for VR environments using MinVR.
+# VR-XROMM
+Viewer to visualize animated bone models acquired in the XROMM project
+
